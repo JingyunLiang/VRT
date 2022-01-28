@@ -1,0 +1,13 @@
+addict
+future
+numpy
+opencv-python
+Pillow
+pyyaml
+requests
+scikit-image
+scipy
+torch>=1.9
+torchvision
+timm
+einops
