@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 
 from models.network_vrt import VRT as net
 from utils import utils_image as util
-from data.dataset_video_test import VideoRecurrentTestDataset, VideoTestVimeo90KDataset
+from data.dataset_video_test import VideoRecurrentTestDataset, VideoTestVimeo90KDataset, SingleVideoRecurrentTestDataset
 
 
 def main():
@@ -26,7 +26,7 @@ def main():
     parser.add_argument('--sigma', type=int, default=0, help='noise level for denoising: 10, 20, 30, 40, 50')
     parser.add_argument('--folder_lq', type=str, default='testsets/REDS4/sharp_bicubic',
                         help='input low-quality test video folder')
-    parser.add_argument('--folder_gt', type=str, default='testsets/REDS4/GT',
+    parser.add_argument('--folder_gt', type=str, default=None,
                         help='input ground-truth test video folder')
     parser.add_argument('--tile', type=int, nargs='+', default=[40,128,128],
                         help='Tile size, [0,0,0] for no tile during testing (testing as a whole)')
@@ -43,9 +43,13 @@ def main():
         test_set = VideoTestVimeo90KDataset({'dataroot_gt':args.folder_gt, 'dataroot_lq':args.folder_lq,
                                            'meta_info_file': "data/meta_info/meta_info_Vimeo90K_test_GT.txt",
                                             'pad_sequence': True, 'num_frame': 7, 'cache_data': False})
-    else:
+    elif args.folder_gt is not None:
         test_set = VideoRecurrentTestDataset({'dataroot_gt':args.folder_gt, 'dataroot_lq':args.folder_lq,
                                               'sigma':args.sigma, 'num_frame':-1, 'cache_data': False})
+    else:
+        test_set = SingleVideoRecurrentTestDataset({'dataroot_gt':args.folder_gt, 'dataroot_lq':args.folder_lq,
+                                              'sigma':args.sigma, 'num_frame':-1, 'cache_data': False})
+
     test_loader = DataLoader(dataset=test_set, num_workers=8, batch_size=1, shuffle=False)
 
     save_dir = f'results/{args.task}'
@@ -107,18 +111,17 @@ def main():
                     test_results_folder['psnr_y'] = test_results_folder['psnr']
                     test_results_folder['ssim_y'] = test_results_folder['ssim']
 
-        psnr = sum(test_results_folder['psnr']) / len(test_results_folder['psnr'])
-        ssim = sum(test_results_folder['ssim']) / len(test_results_folder['ssim'])
-        psnr_y = sum(test_results_folder['psnr_y']) / len(test_results_folder['psnr_y'])
-        ssim_y = sum(test_results_folder['ssim_y']) / len(test_results_folder['ssim_y'])
-
         if gt is not None:
-            print('Testing {:20s} ({:2d}/{}) - PSNR: {:.2f} dB; SSIM: {:.4f}; PSNR_Y: {:.2f} dB; SSIM_Y: {:.4f}'.
-                      format(folder[0], idx, len(test_loader), psnr, ssim, psnr_y, ssim_y))
+            psnr = sum(test_results_folder['psnr']) / len(test_results_folder['psnr'])
+            ssim = sum(test_results_folder['ssim']) / len(test_results_folder['ssim'])
+            psnr_y = sum(test_results_folder['psnr_y']) / len(test_results_folder['psnr_y'])
+            ssim_y = sum(test_results_folder['ssim_y']) / len(test_results_folder['ssim_y'])
             test_results['psnr'].append(psnr)
             test_results['ssim'].append(ssim)
             test_results['psnr_y'].append(psnr_y)
             test_results['ssim_y'].append(ssim_y)
+            print('Testing {:20s} ({:2d}/{}) - PSNR: {:.2f} dB; SSIM: {:.4f}; PSNR_Y: {:.2f} dB; SSIM_Y: {:.4f}'.
+                      format(folder[0], idx, len(test_loader), psnr, ssim, psnr_y, ssim_y))
         else:
             print('Testing {:20s}  ({:2d}/{})'.format(folder[0], idx, len(test_loader)))
 
