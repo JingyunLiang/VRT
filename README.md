@@ -5,7 +5,7 @@ Computer Vision Lab, ETH Zurich & Meta Inc.
 
 ---
 
-[arxiv](https://arxiv.org/abs/2201.00000)
+[arxiv](https://arxiv.org/abs/2201.12288)
 **|** 
 [supplementary](https://github.com/JingyunLiang/VRT/releases/download/v0.0/VRT_supplementary.pdf)
 **|** 
@@ -13,7 +13,7 @@ Computer Vision Lab, ETH Zurich & Meta Inc.
 **|** 
 [visual results](https://github.com/JingyunLiang/VRT/releases)
 
-[![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://arxiv.org/abs/2201.00000)
+[![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://arxiv.org/abs/2201.12288)
 [![GitHub Stars](https://img.shields.io/github/stars/JingyunLiang/VRT?style=social)](https://github.com/JingyunLiang/VRT)
 [![download](https://img.shields.io/github/downloads/JingyunLiang/VRT/total.svg)](https://github.com/JingyunLiang/VRT/releases)
 ![visitors](https://visitor-badge.glitch.me/badge?page_id=jingyunliang/VRT)
@@ -124,7 +124,7 @@ The training code will be put in [KAIR](https://github.com/cszn/KAIR).
 
 
 ## Results
-We achieved state-of-the-art performance on video SR, video deblurring and video denoising. Detailed results can be found in the [paper](https://arxiv.org/abs/2201.00000).
+We achieved state-of-the-art performance on video SR, video deblurring and video denoising. Detailed results can be found in the [paper](https://arxiv.org/abs/2201.12288).
 
 <details>
 <summary>Video Super-Resolution (click me)</summary>
@@ -155,7 +155,7 @@ We achieved state-of-the-art performance on video SR, video deblurring and video
     @article{liang2022vrt,
         title={VRT: A Video Restoration Transformer},
         author={Liang, Jingyun and Cao, Jiezhang and Fan, Yuchen and Zhang, Kai and Ranjan, Rakesh and Li, Yawei and Timofte, Radu and Van Gool, Luc},
-        journal={arXiv preprint arXiv:2108.10257},
+        journal={arXiv preprint arXiv:2201.12288},
         year={2022}
     }
 
