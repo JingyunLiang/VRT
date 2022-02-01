@@ -50,7 +50,7 @@ def main():
         test_set = SingleVideoRecurrentTestDataset({'dataroot_gt':args.folder_gt, 'dataroot_lq':args.folder_lq,
                                               'sigma':args.sigma, 'num_frame':-1, 'cache_data': False})
 
-    test_loader = DataLoader(dataset=test_set, num_workers=8, batch_size=1, shuffle=False)
+    test_loader = DataLoader(dataset=test_set, num_workers=2, batch_size=1, shuffle=False)
 
     save_dir = f'results/{args.task}'
     os.makedirs(save_dir, exist_ok=True)
