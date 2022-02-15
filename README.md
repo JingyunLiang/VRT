@@ -54,8 +54,8 @@ This repository is the official PyTorch implementation of "VRT: A Video Restorat
 #### Contents
 
 1. [Requirements](#Requirements)
-1. [Training](#Training)
 1. [Quick Testing](#Quick-Testing)
+1. [Training](#Training)
 1. [Results](#Results)
 1. [Citation](#Citation)
 1. [License and Acknowledgement](#License-and-Acknowledgement)
@@ -126,7 +126,7 @@ Note: You do **NOT need** to prepare the datasets if you just want to test the m
 | video deblurring (setting 3, motion blur)                     |                                                         [REDS sharp & blur](https://seungjunnah.github.io/Datasets/reds.html) (266 videos, 266000 frames: train & val except REDS4)   <br  /><br  /> *Use  [regroup_reds_dataset.py](https://github.com/cszn/KAIR/tree/master/scripts/data_preparation/regroup_reds_dataset.py) to regroup and rename REDS val set. Note that it shares the same HQ frames as in VSR.                                                          |                                                                                                                                                                                                                                                           REDS4 (4 videos, 400 frames: 000, 011, 015, 020 of REDS)                                                                                                                                                                                                                                                           | [here](https://github.com/JingyunLiang/VRT/releases) |
 | video denoising (Gaussian noise)                              |                                                                                                                                             [DAVIS-2017](https://data.vision.ee.ethz.ch/csergi/share/davis/DAVIS-2017-Unsupervised-trainval-480p.zip) (90 videos, 6208 frames)  <br  /><br  /> *Use all files in DAVIS/JPEGImages/480p                                                                                                                                              |                                                                                                              [DAVIS-2017-test](https://github.com/JingyunLiang/VRT/releases) (30 videos) + [Set8](https://www.dropbox.com/sh/20n4cscqkqsfgoj/AABGftyJuJDwuCLGczL-fKvBa/test_sequences?dl=0&subfolder_nav_tracking=1) (8 videos: tractor, touchdown, park_joy and sunflower selected from DERF + hypersmooth, motorbike, rafting and snowboard from GOPRO_540P)                                                                                                               | [here](https://github.com/JingyunLiang/VRT/releases) |
 
-The training code will be put in [KAIR](https://github.com/cszn/KAIR).
+The training code is at [KAIR](https://github.com/cszn/KAIR).
 
 
 ## Results
