@@ -32,6 +32,7 @@ def main():
                         help='Tile size, [0,0,0] for no tile during testing (testing as a whole)')
     parser.add_argument('--tile_overlap', type=int, nargs='+', default=[2,20,20],
                         help='Overlapping of different tiles')
+    parser.add_argument('--num_workers', type=int, default=16, help='number of workers in data loading')
     args = parser.parse_args()
 
     # define model
@@ -50,7 +51,7 @@ def main():
         test_set = SingleVideoRecurrentTestDataset({'dataroot_gt':args.folder_gt, 'dataroot_lq':args.folder_lq,
                                               'sigma':args.sigma, 'num_frame':-1, 'cache_data': False})
 
-    test_loader = DataLoader(dataset=test_set, num_workers=2, batch_size=1, shuffle=False)
+    test_loader = DataLoader(dataset=test_set, num_workers=args.num_workers, batch_size=1, shuffle=False)
 
     save_dir = f'results/{args.task}'
     os.makedirs(save_dir, exist_ok=True)

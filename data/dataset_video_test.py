@@ -269,6 +269,7 @@ class VideoTestVimeo90KDataset(data.Dataset):
             self.data_info['border'].append(0)
 
         self.pad_sequence = opt.get('pad_sequence', False)
+        self.mirror_sequence = opt.get('mirror_sequence', False)
 
     def __getitem__(self, index):
         lq_path = self.data_info['lq_path'][index]
@@ -279,6 +280,9 @@ class VideoTestVimeo90KDataset(data.Dataset):
 
         if self.pad_sequence:  # pad the sequence: 7 frames to 8 frames
             imgs_lq = torch.cat([imgs_lq, imgs_lq[-1:,...]], dim=0)
+
+        if self.mirror_sequence:  # mirror the sequence: 7 frames to 14 frames
+            imgs_lq = torch.cat([imgs_lq, imgs_lq.flip(0)], dim=0)
 
         return {
             'L': imgs_lq,  # (t, c, h, w)
@@ -291,8 +295,8 @@ class VideoTestVimeo90KDataset(data.Dataset):
 
     def __len__(self):
         return len(self.data_info['gt_path'])
-    
-    
+
+
 class SingleVideoRecurrentTestDataset(data.Dataset):
     """Single Video test dataset (only input LQ path).
 
@@ -386,4 +390,3 @@ class SingleVideoRecurrentTestDataset(data.Dataset):
 
     def __len__(self):
         return len(self.folders)
-
