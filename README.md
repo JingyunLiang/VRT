@@ -20,7 +20,7 @@ Computer Vision Lab, ETH Zurich & Meta Inc.
 [ <a href="https://colab.research.google.com/gist/JingyunLiang/deb335792768ad9eb73854a8efca4fe0#file-vrt-demo-on-video-restoration-ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="google colab logo"></a>](https://colab.research.google.com/gist/JingyunLiang/deb335792768ad9eb73854a8efca4fe0#file-vrt-demo-on-video-restoration-ipynb)
 
 This repository is the official PyTorch implementation of "VRT: A Video Restoration Transformer"
-([arxiv](https://arxiv.org/pdf/2201.12288.pdf), [supp](https://github.com/JingyunLiang/VRT/releases/download/v0.0/VRT_supplementary.pdf), [pretrained models](https://github.com/JingyunLiang/VRT/releases), [visual results](https://github.com/JingyunLiang/VRT/releases)). VRT ahcieves state-of-the-art performance in
+([arxiv](https://arxiv.org/pdf/2201.12288.pdf), [supp](https://github.com/JingyunLiang/VRT/releases/download/v0.0/VRT_supplementary.pdf), [pretrained models](https://github.com/JingyunLiang/VRT/releases), [visual results](https://github.com/JingyunLiang/VRT/releases)). VRT achieves state-of-the-art performance in
 - video SR (REDS, Vimeo90K, Vid4, UDM10) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; :heart_eyes: **+ 0.33~0.51dB** :heart_eyes:
 - video deblurring (GoPro, DVD, REDS) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; :heart_eyes: &nbsp;&nbsp;&nbsp; **+ 1.47~2.15dB** &nbsp;&nbsp;&nbsp; :heart_eyes: 
 - video denoising (DAVIS, Set8)   &nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; :heart_eyes: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; **+ 1.56~2.16dB** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; :heart_eyes:
@@ -47,8 +47,8 @@ This repository is the official PyTorch implementation of "VRT: A Video Restorat
 
 
 :rocket:  :rocket:  :rocket: **News**:
+- **Oct. 4, 2022**: See the [Recurrent Video Restoration Transformer (RVRT, NeurlPS2022)](https://github.com/JingyunLiang/RVRT)[![GitHub Stars](https://img.shields.io/github/stars/JingyunLiang/RVRT?style=social)](https://github.com/JingyunLiang/RVRT) with more balanced model size, testing memory and runtime.
 - **Jun. 15, 2022**: Add results on video frame interpolation and space-time video SR.
-- **Jun. 10, 2022**: See the [Recurrent Video Restoration Transformer (RVRT)](https://github.com/JingyunLiang/RVRT)[![GitHub Stars](https://img.shields.io/github/stars/JingyunLiang/RVRT?style=social)](https://github.com/JingyunLiang/RVRT) with more balanced model size, testing memory and runtime.
 - **Jan. 26, 2022**: See our previous works on
 
 |   Topic   |     Title     |    Badge  |
