@@ -11,3 +11,4 @@ torch>=1.9
 torchvision
 timm
 einops
+matplotlib
