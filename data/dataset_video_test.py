@@ -211,6 +211,7 @@ class SingleVideoRecurrentTestDataset(data.Dataset):
 
         # Find unique folder strings
         self.folders = sorted(list(set(self.data_info['folder'])))
+        self.sigma = opt['sigma'] / 255. if 'sigma' in opt else 0
 
     def __getitem__(self, index):
         folder = self.folders[index]
@@ -219,6 +220,11 @@ class SingleVideoRecurrentTestDataset(data.Dataset):
             imgs_lq = self.imgs_lq[folder]
         else:
             imgs_lq = utils_video.read_img_seq(self.imgs_lq[folder])
+
+        if self.sigma:
+            t, _, h, w = imgs_lq.shape
+            noise_level = torch.ones((1, 1, 1, 1)) * self.sigma
+            imgs_lq = torch.cat([imgs_lq, noise_level.expand(t, 1, h, w)], 1)
 
         return {
             'L': imgs_lq,

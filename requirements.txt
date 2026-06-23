@@ -3,6 +3,8 @@ future
 numpy
 opencv-python
 Pillow
+Flask
+matplotlib
 pyyaml
 requests
 scikit-image
