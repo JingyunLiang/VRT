@@ -305,7 +305,8 @@
           const treatmentName = chunk.treatment ? ` - ${chunk.treatment}` : "";
           const errorMark = chunk.state === "failed" ? " - needs retry" : "";
           const resized = chunk.auto_resized ? ` - resized to ${chunk.working_width}x${chunk.working_height}` : "";
-          option.textContent = `Chunk ${chunk.index}: ${chunk.state}${errorMark}${resized}${treatmentName}`;
+          const outputSize = chunk.output_width && chunk.output_height ? ` - output ${chunk.output_width}x${chunk.output_height}` : "";
+          option.textContent = `Chunk ${chunk.index}: ${chunk.state}${errorMark}${resized}${outputSize}${treatmentName}`;
           chunkSelect.appendChild(option);
         }
         if (previous && latestChunks.some((chunk) => String(chunk.index) === previous)) {
@@ -332,7 +333,8 @@
           chunkError.classList.add("hidden");
         }
         if (chunk && chunk.download_url) {
-          downloadChunk.href = chunk.download_url;
+          const version = chunk.completed_at || Date.now();
+          downloadChunk.href = `${chunk.download_url}?v=${encodeURIComponent(version)}`;
           downloadChunk.classList.remove("hidden");
         } else {
           downloadChunk.classList.add("hidden");

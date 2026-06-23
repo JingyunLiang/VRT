@@ -874,12 +874,15 @@ def process_chunk_job(job_id: str, chunk_index: int, treatment_key: str) -> None
                 processed_chunk,
                 f"chunk {chunk_index}",
             )
+        output_width, output_height = ffprobe_dimensions(processed_chunk)
         chunks = update_chunk(
             job_id,
             chunk_index,
             state="complete",
             treatment=treatment.label,
             frame_count=frame_count,
+            output_width=output_width,
+            output_height=output_height,
             download_url=f"/jobs/{job_id}/chunks/{chunk_index}/download",
             completed_at=time.time(),
         )
@@ -973,12 +976,15 @@ def process_all_chunks_job(job_id: str, treatment_key: str) -> None:
                 )
 
             completed_at = time.time()
+            output_width, output_height = ffprobe_dimensions(processed_chunk)
             chunks = update_chunk(
                 job_id,
                 chunk_index,
                 state="complete",
                 treatment=treatment.label,
                 frame_count=frame_count,
+                output_width=output_width,
+                output_height=output_height,
                 download_url=f"/jobs/{job_id}/chunks/{chunk_index}/download",
                 completed_at=completed_at,
                 duration_seconds=completed_at - started_at,
