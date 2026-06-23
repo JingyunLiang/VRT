@@ -614,7 +614,7 @@ def resize_video(job_id: str, input_video: Path, output_video: Path, max_width: 
     return output_video
 
 
-def chunk_source_path(job_id: str, chunk_index: int) -> Path:
+def chunk_source_path(job_id: str, chunk_index: int, prefer_resized: bool = False) -> Path:
     chunks = read_chunks(job_id)
     chunk = next((item for item in chunks if item["index"] == chunk_index), None)
     if chunk is None:
@@ -622,7 +622,8 @@ def chunk_source_path(job_id: str, chunk_index: int) -> Path:
 
     job_dir = job_path(job_id)
     source = chunk.get("source") or f"chunk_{chunk_index - 1:04d}.mp4"
-    for folder in ["resized_chunks", "chunks"]:
+    folders = ["resized_chunks", "chunks"] if prefer_resized else ["chunks", "resized_chunks"]
+    for folder in folders:
         candidate = job_dir / folder / source
         if candidate.exists():
             return candidate
@@ -757,15 +758,6 @@ def process_job(
                 duration=duration,
             )
             chunks = split_video(job_id, input_video, chunks_dir, chunk_seconds)
-            if max_width:
-                write_status(
-                    job_id,
-                    state="chunking",
-                    message=f"Resizing chunks to max width {max_width}",
-                    treatment=treatment.label,
-                    duration=duration,
-                )
-                chunks = resize_chunks(job_id, chunks, max_width)
             write_chunks(
                 job_id,
                 [
