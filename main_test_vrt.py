@@ -35,6 +35,7 @@ def main():
                         help='Overlapping of different tiles')
     parser.add_argument('--num_workers', type=int, default=16, help='number of workers in data loading')
     parser.add_argument('--save_result', action='store_true', help='save resulting image')
+    parser.add_argument('--save_dir', type=str, default=None, help='directory to save resulting images')
     args = parser.parse_args()
 
     # define model
@@ -68,7 +69,7 @@ def main():
 
     test_loader = DataLoader(dataset=test_set, num_workers=args.num_workers, batch_size=1, shuffle=False)
 
-    save_dir = f'results/{args.task}'
+    save_dir = args.save_dir or f'results/{args.task}'
     if args.save_result:
         os.makedirs(save_dir, exist_ok=True)
     test_results = OrderedDict()

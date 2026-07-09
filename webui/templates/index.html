@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VRT Video Processor</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="workspace" aria-labelledby="title">
+        <div class="mast">
+          <img src="/repo-assets/teaser_vsr.gif" alt="">
+          <div>
+            <h1 id="title">VRT Video Processor</h1>
+            <p>Upload a clip, choose a restoration treatment, and download the processed video when the job finishes.</p>
+          </div>
+        </div>
+
+        <form id="job-form" class="panel">
+          <label class="dropzone" for="video">
+            <input id="video" name="video" type="file" accept="video/*" required>
+            <span class="drop-title">Choose video</span>
+            <span id="file-name" class="drop-meta">MP4, MOV, MKV, AVI, WebM, or M4V</span>
+          </label>
+
+          <div class="field">
+            <label for="treatment">Treatment</label>
+            <select id="treatment" name="treatment" required>
+              {% for key, treatment in treatments.items() %}
+              <option value="{{ key }}">{{ treatment["label"] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <p id="treatment-note" class="note"></p>
+
+          <div class="chunk-options">
+            <label class="check-row">
+              <input id="chunk-mode" type="checkbox" name="chunk_mode" value="1">
+              <span>Prepare chunks first</span>
+            </label>
+            <div class="field chunk-length">
+              <label for="chunk-seconds">Chunk length, seconds</label>
+              <input id="chunk-seconds" name="chunk_seconds" type="number" min="2" max="60" step="1" value="{{ default_chunk_seconds }}" disabled>
+            </div>
+            <div class="field chunk-length">
+              <label for="max-width">Auto max width</label>
+              <input id="max-width" name="max_width" type="number" min="0" max="1920" step="2" value="{{ default_max_width }}" disabled>
+            </div>
+          </div>
+
+          <button id="submit" type="submit">Process video</button>
+        </form>
+
+        <div class="jobs-panel">
+          <div class="jobs-head">
+            <h2>Uploaded Videos</h2>
+            <button id="refresh-jobs" type="button" class="secondary">Refresh</button>
+          </div>
+          <div id="jobs-list" class="jobs-list"></div>
+        </div>
+      </section>
+
+      <section class="status-region" aria-live="polite">
+        <div class="status-bar">
+          <div>
+            <span class="eyebrow">Status</span>
+            <h2 id="state">Idle</h2>
+          </div>
+          <a id="download" class="download hidden" href="#">Download final</a>
+        </div>
+        <div class="progress">
+          <span id="progress-fill"></span>
+        </div>
+        <div class="timing">
+          <span id="elapsed">Elapsed: --</span>
+          <span id="remaining">Remaining: --</span>
+        </div>
+        <p id="message">Waiting for a video.</p>
+        <div id="chunk-panel" class="chunk-panel hidden">
+          <div class="field">
+            <label for="chunk-select">Chunk</label>
+            <select id="chunk-select"></select>
+          </div>
+          <p id="chunk-error" class="chunk-error hidden"></p>
+          <div class="chunk-actions">
+            <button id="process-chunk" type="button">Process selected chunk</button>
+            <button id="process-all" type="button">Process all chunks</button>
+            <a id="download-chunk" class="download muted hidden" href="#">Download chunk</a>
+            <button id="stitch" type="button">Stitch completed chunks</button>
+          </div>
+        </div>
+        <pre id="log"></pre>
+      </section>
+    </main>
+
+    <script>
+      const notes = {{ treatments | tojson }};
+      const form = document.querySelector("#job-form");
+      const fileInput = document.querySelector("#video");
+      const fileName = document.querySelector("#file-name");
+      const treatment = document.querySelector("#treatment");
+      const note = document.querySelector("#treatment-note");
+      const submit = document.querySelector("#submit");
+      const jobsList = document.querySelector("#jobs-list");
+      const refreshJobs = document.querySelector("#refresh-jobs");
+      const chunkMode = document.querySelector("#chunk-mode");
+      const chunkSeconds = document.querySelector("#chunk-seconds");
+      const maxWidth = document.querySelector("#max-width");
+      const chunkPanel = document.querySelector("#chunk-panel");
+      const chunkSelect = document.querySelector("#chunk-select");
+      const chunkError = document.querySelector("#chunk-error");
+      const processChunk = document.querySelector("#process-chunk");
+      const processAll = document.querySelector("#process-all");
+      const downloadChunk = document.querySelector("#download-chunk");
+      const stitch = document.querySelector("#stitch");
+      const state = document.querySelector("#state");
+      const message = document.querySelector("#message");
+      const log = document.querySelector("#log");
+      const download = document.querySelector("#download");
+      const progressFill = document.querySelector("#progress-fill");
+      const elapsed = document.querySelector("#elapsed");
+      const remaining = document.querySelector("#remaining");
+      const activeStates = ["processing", "processing_chunk", "processing_all_chunks", "chunking", "stitching", "encoding", "queued", "extracting"];
+      let timer = null;
+      let clockTimer = null;
+      let currentStatusUrl = null;
+      let currentJobId = null;
+      let latestChunks = [];
+      let latestJobs = [];
+      let latestStatus = null;
+
+      function setNote() {
+        note.textContent = notes[treatment.value].notes;
+      }
+
+      function setProgress(jobState) {
+        const widths = {
+          queued: "10%",
+          chunking: "18%",
+          ready_for_chunks: "30%",
+          extracting: "25%",
+          processing: "60%",
+          processing_chunk: "60%",
+          processing_all_chunks: "60%",
+          stitching: "85%",
+          encoding: "85%",
+          complete: "100%",
+          failed: "100%"
+        };
+        progressFill.style.width = widths[jobState] || "0";
+        progressFill.classList.toggle("failed", jobState === "failed");
+      }
+
+      function formatDuration(totalSeconds) {
+        if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return "--";
+        const seconds = Math.floor(totalSeconds);
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        if (h) return `${h}h ${String(m).padStart(2, "0")}m`;
+        if (m) return `${m}m ${String(s).padStart(2, "0")}s`;
+        return `${s}s`;
+      }
+
+      function formatBytes(bytes) {
+        if (!Number.isFinite(bytes) || bytes < 0) return "--";
+        const gb = bytes / 1024 / 1024 / 1024;
+        if (gb >= 1) return `${gb.toFixed(2)} GB`;
+        return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+      }
+
+      function formatSpeed(bytesPerSecond) {
+        if (!Number.isFinite(bytesPerSecond) || bytesPerSecond <= 0) return "--";
+        return `${formatBytes(bytesPerSecond)}/s`;
+      }
+
+      function averageCompletedChunkSeconds() {
+        const durations = latestChunks
+          .map((chunk) => chunk.duration_seconds)
+          .filter((value) => Number.isFinite(value) && value > 0);
+        if (!durations.length) return null;
+        return durations.reduce((sum, value) => sum + value, 0) / durations.length;
+      }
+
+      function activeStartTime() {
+        if (!latestStatus) return null;
+        const activeChunk = latestChunks.find((chunk) => chunk.state === "processing");
+        return activeChunk?.started_at || latestStatus.step_started_at || latestStatus.updated_at || null;
+      }
+
+      function updateTiming() {
+        if (!latestStatus || !activeStates.includes(latestStatus.state)) {
+          elapsed.textContent = "Elapsed: --";
+          remaining.textContent = "Remaining: --";
+          return;
+        }
+
+        const startedAt = activeStartTime();
+        const elapsedSeconds = startedAt ? Date.now() / 1000 - startedAt : 0;
+        elapsed.textContent = `Elapsed: ${formatDuration(elapsedSeconds)}`;
+
+        if (!["processing_chunk", "processing_all_chunks"].includes(latestStatus.state)) {
+          remaining.textContent = "Remaining: estimating";
+          return;
+        }
+
+        const avg = averageCompletedChunkSeconds();
+        if (!avg) {
+          remaining.textContent = "Remaining: estimating after first chunk";
+          return;
+        }
+
+        const currentRemaining = Math.max(avg - elapsedSeconds, 0);
+        const unprocessed = latestChunks.filter((chunk) => !["complete", "processing"].includes(chunk.state)).length;
+        remaining.textContent = `Remaining: ${formatDuration(currentRemaining + unprocessed * avg)}`;
+      }
+
+      function renderJobs(jobs) {
+        latestJobs = jobs || [];
+        jobsList.innerHTML = "";
+        if (latestJobs.length === 0) {
+          const empty = document.createElement("p");
+          empty.className = "empty";
+          empty.textContent = "No uploads yet.";
+          jobsList.appendChild(empty);
+          return;
+        }
+        for (const job of latestJobs) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "job-row";
+          button.classList.toggle("active", job.job_id === currentJobId);
+          button.dataset.jobId = job.job_id;
+          button.innerHTML = `
+            <span class="job-name"></span>
+            <span class="job-meta"></span>
+            <span class="job-state"></span>
+            <span class="job-delete" title="Delete video">Delete</span>
+          `;
+          button.querySelector(".job-name").textContent = job.filename || job.job_id;
+          const chunks = job.chunk_count ? `${job.processed_chunks || 0}/${job.chunk_count} chunks` : "single video";
+          button.querySelector(".job-meta").textContent = chunks;
+          button.querySelector(".job-state").textContent = job.state || "unknown";
+          button.addEventListener("click", () => loadJob(job.job_id, job.status_url, true));
+          button.querySelector(".job-delete").addEventListener("click", (event) => {
+            event.stopPropagation();
+            deleteJob(job.job_id);
+          });
+          jobsList.appendChild(button);
+        }
+      }
+
+      function clearSelectedJob() {
+        currentJobId = null;
+        currentStatusUrl = null;
+        latestChunks = [];
+        localStorage.removeItem("vrtJobId");
+        localStorage.removeItem("vrtStatusUrl");
+        const url = new URL(window.location);
+        url.searchParams.delete("job");
+        window.history.pushState({}, "", url);
+        state.textContent = "Idle";
+        message.textContent = "Waiting for a video.";
+        log.textContent = "";
+        download.classList.add("hidden");
+        renderChunks([]);
+        setProgress("");
+      }
+
+      async function deleteJob(jobId) {
+        const job = latestJobs.find((item) => item.job_id === jobId);
+        const name = job ? job.filename : "this video";
+        if (!window.confirm(`Delete ${name} and all generated chunks?`)) return;
+        const response = await fetch(`/jobs/${jobId}/delete`, { method: "POST" });
+        if (!response.ok) {
+          message.textContent = await response.text();
+          return;
+        }
+        if (jobId === currentJobId) {
+          clearSelectedJob();
+        }
+        await loadJobs();
+        if (!currentJobId && latestJobs.length) {
+          await loadJob(latestJobs[0].job_id, latestJobs[0].status_url, true);
+        }
+      }
+
+      async function loadJobs() {
+        const response = await fetch("/jobs");
+        if (!response.ok) return;
+        const data = await response.json();
+        renderJobs(data.jobs || []);
+      }
+
+      function renderChunks(chunks) {
+        latestChunks = chunks || [];
+        chunkPanel.classList.toggle("hidden", latestChunks.length === 0);
+        const previous = chunkSelect.value;
+        chunkSelect.innerHTML = "";
+        for (const chunk of latestChunks) {
+          const option = document.createElement("option");
+          option.value = chunk.index;
+          const treatmentName = chunk.treatment ? ` - ${chunk.treatment}` : "";
+          const errorMark = chunk.state === "failed" ? " - needs retry" : "";
+          const resized = chunk.auto_resized ? ` - resized to ${chunk.working_width}x${chunk.working_height}` : "";
+          const outputSize = chunk.output_width && chunk.output_height ? ` - output ${chunk.output_width}x${chunk.output_height}` : "";
+          option.textContent = `Chunk ${chunk.index}: ${chunk.state}${errorMark}${resized}${outputSize}${treatmentName}`;
+          chunkSelect.appendChild(option);
+        }
+        if (previous && latestChunks.some((chunk) => String(chunk.index) === previous)) {
+          chunkSelect.value = previous;
+        }
+        updateChunkButtons();
+      }
+
+      function selectedChunk() {
+        return latestChunks.find((chunk) => String(chunk.index) === chunkSelect.value);
+      }
+
+      function updateChunkButtons() {
+        const chunk = selectedChunk();
+        const busy = activeStates.includes(state.textContent);
+        processChunk.disabled = !chunk || busy;
+        processChunk.textContent = chunk && chunk.state === "failed" ? "Retry selected chunk" : "Process selected chunk";
+        processAll.disabled = latestChunks.length === 0 || busy;
+        stitch.disabled = latestChunks.length === 0 || latestChunks.some((chunk) => chunk.state !== "complete") || busy;
+        if (chunk && chunk.error) {
+          chunkError.textContent = chunk.error;
+          chunkError.classList.remove("hidden");
+        } else {
+          chunkError.classList.add("hidden");
+        }
+        if (chunk && chunk.download_url) {
+          const version = chunk.completed_at || Date.now();
+          downloadChunk.href = `${chunk.download_url}?v=${encodeURIComponent(version)}`;
+          downloadChunk.classList.remove("hidden");
+        } else {
+          downloadChunk.classList.add("hidden");
+        }
+      }
+
+      async function poll(statusUrl) {
+        const response = await fetch(statusUrl);
+        if (!response.ok) {
+          message.textContent = "Saved job could not be loaded.";
+          localStorage.removeItem("vrtJobId");
+          localStorage.removeItem("vrtStatusUrl");
+          return;
+        }
+        const data = await response.json();
+        latestStatus = data;
+        state.textContent = data.state || "Working";
+        const filename = data.filename ? `${data.filename}: ` : "";
+        message.textContent = filename + (data.message || "");
+        log.textContent = data.log || "";
+        log.scrollTop = log.scrollHeight;
+        setProgress(data.state);
+        renderChunks(data.chunks || []);
+        updateTiming();
+
+        if (data.state === "complete") {
+          clearInterval(timer);
+          timer = null;
+          submit.disabled = false;
+          download.href = data.download_url;
+          download.classList.remove("hidden");
+        } else if (data.state === "failed") {
+          clearInterval(timer);
+          timer = null;
+          submit.disabled = false;
+          download.classList.add("hidden");
+        }
+        if (activeStates.includes(data.state) && !timer) {
+          timer = setInterval(() => poll(statusUrl), 2500);
+        }
+        if (activeStates.includes(data.state) && !clockTimer) {
+          clockTimer = setInterval(updateTiming, 1000);
+        } else if (!activeStates.includes(data.state) && clockTimer) {
+          clearInterval(clockTimer);
+          clockTimer = null;
+        }
+        loadJobs();
+      }
+
+      async function loadJob(jobId, statusUrl, updateUrl = false) {
+        currentJobId = jobId;
+        currentStatusUrl = statusUrl;
+        localStorage.setItem("vrtJobId", jobId);
+        localStorage.setItem("vrtStatusUrl", statusUrl);
+        if (updateUrl) {
+          const url = new URL(window.location);
+          url.searchParams.set("job", jobId);
+          window.history.pushState({ jobId }, "", url);
+        }
+        await poll(statusUrl);
+        renderJobs(latestJobs);
+      }
+
+      async function resumeSavedJob() {
+        const urlJobId = new URLSearchParams(window.location.search).get("job");
+        if (urlJobId) {
+          await loadJob(urlJobId, `/jobs/${urlJobId}`);
+          return;
+        }
+        const savedJobId = localStorage.getItem("vrtJobId");
+        const savedStatusUrl = localStorage.getItem("vrtStatusUrl");
+        if (savedJobId && savedStatusUrl) {
+          await loadJob(savedJobId, savedStatusUrl);
+          return;
+        }
+        const response = await fetch("/jobs/latest");
+        if (response.ok) {
+          const data = await response.json();
+          await loadJob(data.job_id, data.status_url);
+        }
+      }
+
+      fileInput.addEventListener("change", () => {
+        fileName.textContent = fileInput.files[0] ? fileInput.files[0].name : "MP4, MOV, MKV, AVI, WebM, or M4V";
+      });
+
+      treatment.addEventListener("change", setNote);
+      chunkMode.addEventListener("change", () => {
+        chunkSeconds.disabled = !chunkMode.checked;
+        maxWidth.disabled = !chunkMode.checked;
+        submit.textContent = chunkMode.checked ? "Prepare chunks" : "Process video";
+      });
+      chunkSelect.addEventListener("change", updateChunkButtons);
+      refreshJobs.addEventListener("click", loadJobs);
+      setNote();
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const file = fileInput.files[0];
+        if (!file) return;
+        submit.disabled = true;
+        download.classList.add("hidden");
+        state.textContent = "Uploading";
+        message.textContent = "Sending video to the local VRT server.";
+        log.textContent = "";
+        chunkPanel.classList.add("hidden");
+        latestChunks = [];
+        setProgress("queued");
+
+        const formData = new FormData(form);
+        if (!chunkMode.checked) {
+          formData.set("chunk_seconds", "0");
+          formData.set("max_width", "0");
+        }
+
+        try {
+          const startResponse = await fetch("/uploads/start", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              filename: file.name,
+              size: file.size,
+              treatment: formData.get("treatment"),
+              chunk_seconds: formData.get("chunk_seconds"),
+              max_width: formData.get("max_width")
+            })
+          });
+          if (!startResponse.ok) throw new Error(await startResponse.text());
+          const upload = await startResponse.json();
+          const uploadChunkSize = 32 * 1024 * 1024;
+          let offset = upload.received || 0;
+          const uploadStartedAt = Date.now();
+
+          while (offset < file.size) {
+            const end = Math.min(offset + uploadChunkSize, file.size);
+            const chunk = file.slice(offset, end);
+            const response = await fetch(`/uploads/${upload.upload_id}/part`, {
+              method: "PUT",
+              headers: { "X-Upload-Offset": String(offset) },
+              body: chunk
+            });
+            if (!response.ok) throw new Error(await response.text());
+            const data = await response.json();
+            offset = data.received;
+            const percent = Math.max(1, Math.round((offset / file.size) * 100));
+            const elapsedSeconds = Math.max((Date.now() - uploadStartedAt) / 1000, 0.001);
+            const speed = offset / elapsedSeconds;
+            const remainingSeconds = (file.size - offset) / speed;
+            state.textContent = `Uploading ${percent}%`;
+            elapsed.textContent = `Elapsed: ${formatDuration(elapsedSeconds)}`;
+            remaining.textContent = `Remaining: ${formatDuration(remainingSeconds)}`;
+            message.textContent = `Uploaded ${formatBytes(offset)} of ${formatBytes(file.size)} at ${formatSpeed(speed)}. Keep this tab open.`;
+            progressFill.style.width = `${Math.min(percent, 99)}%`;
+          }
+
+          state.textContent = "Finalizing upload";
+          remaining.textContent = "Remaining: finalizing";
+          message.textContent = "Upload complete. Creating processing job.";
+          const finishResponse = await fetch(`/uploads/${upload.upload_id}/finish`, { method: "POST" });
+          if (!finishResponse.ok) throw new Error(await finishResponse.text());
+          const data = await finishResponse.json();
+          await loadJobs();
+          await loadJob(data.job_id, data.status_url, true);
+          timer = setInterval(() => poll(data.status_url), 2500);
+        } catch (error) {
+          state.textContent = "Failed";
+          message.textContent = error.message || "Upload failed before reaching the server.";
+          submit.disabled = false;
+          setProgress("failed");
+        }
+      });
+
+      processChunk.addEventListener("click", async () => {
+        const chunk = selectedChunk();
+        if (!chunk || !currentJobId || !currentStatusUrl) return;
+        processChunk.disabled = true;
+        const formData = new FormData();
+        formData.set("treatment", treatment.value);
+        const response = await fetch(`/jobs/${currentJobId}/chunks/${chunk.index}/process`, {
+          method: "POST",
+          body: formData
+        });
+        if (!response.ok) {
+          message.textContent = await response.text();
+          processChunk.disabled = false;
+          return;
+        }
+        await poll(currentStatusUrl);
+        if (!timer) timer = setInterval(() => poll(currentStatusUrl), 2500);
+      });
+
+      processAll.addEventListener("click", async () => {
+        if (!currentJobId || !currentStatusUrl || latestChunks.length === 0) return;
+        processAll.disabled = true;
+        const formData = new FormData();
+        formData.set("treatment", treatment.value);
+        const response = await fetch(`/jobs/${currentJobId}/chunks/process-all`, {
+          method: "POST",
+          body: formData
+        });
+        if (!response.ok) {
+          message.textContent = await response.text();
+          processAll.disabled = false;
+          return;
+        }
+        await poll(currentStatusUrl);
+        if (!timer) timer = setInterval(() => poll(currentStatusUrl), 2500);
+      });
+
+      stitch.addEventListener("click", async () => {
+        if (!currentJobId || !currentStatusUrl) return;
+        stitch.disabled = true;
+        const response = await fetch(`/jobs/${currentJobId}/stitch`, { method: "POST" });
+        if (!response.ok) {
+          message.textContent = await response.text();
+          stitch.disabled = false;
+          return;
+        }
+        await poll(currentStatusUrl);
+        if (!timer) timer = setInterval(() => poll(currentStatusUrl), 2500);
+      });
+
+      window.addEventListener("popstate", () => {
+        const urlJobId = new URLSearchParams(window.location.search).get("job");
+        if (urlJobId) {
+          loadJob(urlJobId, `/jobs/${urlJobId}`);
+        }
+      });
+
+      loadJobs().then(resumeSavedJob);
+    </script>
+  </body>
+</html>
